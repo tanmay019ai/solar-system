@@ -28,3 +28,6 @@ Click on planets to focus the camera, view information, and explore their circul
 - **Framer Motion** – Animations for overlay transitions  
 
 ---
+## 📷 Screenshot
+
+![Solar System](src/assets/screenshots/solar-system.png)
