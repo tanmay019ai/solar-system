@@ -28,15 +28,3 @@ Click on planets to focus the camera, view information, and explore their circul
 - **Framer Motion** – Animations for overlay transitions  
 
 ---
-
-## 📂 Folder Structure
-src/
-├─ assets/
-│ └─ textures/ # Planet and Sun textures
-├─ components/
-│ ├─ SolarSystem.tsx # Main 3D solar system
-│ ├─ CameraController.tsx
-│ ├─ Planet.tsx
-│ ├─ Orbit.tsx
-│ └─ InfoOverlay.tsx
-└─ App.tsx # Root component
