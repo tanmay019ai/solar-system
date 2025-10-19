@@ -47,17 +47,16 @@ interface PlanetData {
 // ------------------ Responsive Camera ------------------
 function ResponsiveCamera() {
   const { camera, size } = useThree();
-  const perspectiveCamera = camera as THREE.PerspectiveCamera; // 👈 Explicit cast
+  const perspectiveCamera = camera as THREE.PerspectiveCamera;
 
   useEffect(() => {
-    // Adjust FOV based on device width
-    perspectiveCamera.fov = size.width < 600 ? 70 : size.width < 1024 ? 60 : 50;
+    // Dynamically adjust camera FOV
+    perspectiveCamera.fov = size.width < 480 ? 75 : size.width < 1024 ? 60 : 50;
     perspectiveCamera.updateProjectionMatrix();
   }, [perspectiveCamera, size.width]);
 
   return null;
 }
-
 
 // ------------------ PlanetGroup ------------------
 function PlanetGroup({
@@ -204,7 +203,10 @@ export default function SolarSystem() {
     Neptune: useRef(null),
   };
 
-  const scaleFactor = window.innerWidth < 600 ? 0.6 : window.innerWidth < 1024 ? 0.8 : 1;
+  // 🪐 Responsive scaling
+  const width = window.innerWidth;
+  const scaleFactor = width < 480 ? 0.9 : width < 1024 ? 0.8 : 1;
+  const cameraPos = width < 480 ? [0, 25, 80] : width < 1024 ? [0, 35, 110] : [0, 40, 120];
 
   const planets: PlanetData[] = [
     { name: "Mercury", size: 0.8 * scaleFactor, distance: 10 * scaleFactor, texture: mercuryTexture, rotationSpeed: 0.02, orbitSpeed: 1.0 },
@@ -269,12 +271,12 @@ export default function SolarSystem() {
             zIndex: 10,
           }}
         >
-          ✨ Click on any planet to explore it!
+          ✨ Tap on any planet to explore it!
         </div>
       )}
 
       <Canvas
-        camera={{ position: [0, 40, 120], fov: 50 }}
+        camera={{ position: cameraPos as [number, number, number], fov: 50 }}
         style={{ width: "100vw", height: "100vh", touchAction: "none" }}
       >
         <ResponsiveCamera />
