@@ -73,6 +73,14 @@ function PlanetGroup({
     planet.ring ? planet.ring.texture : planet.texture,
   ]);
 
+  // 🧠 Detect screen width for responsive adjustments
+  const isMobile = window.innerWidth < 600;
+  const isTablet = window.innerWidth < 1024;
+
+  // Dynamic label scale
+  const labelFontSize = isMobile ? 0.25 : isTablet ? 0.4 : 0.6;
+  const labelHeightOffset = isMobile ? planet.size + 0.6 : planet.size + 0.8;
+
   useFrame(({ clock }) => {
     const t = clock.elapsedTime * planet.orbitSpeed;
     const x = planet.distance * Math.cos(t);
@@ -82,6 +90,7 @@ function PlanetGroup({
 
   return (
     <group ref={planetRef} onClick={() => onClick(planet.name)}>
+      {/* Main planet */}
       <mesh>
         <sphereGeometry args={[planet.size, 48, 48]} />
         <meshStandardMaterial
@@ -93,11 +102,10 @@ function PlanetGroup({
         />
       </mesh>
 
+      {/* Rings (for Saturn) */}
       {planet.ring && (
         <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry
-            args={[planet.ring.inner, planet.ring.outer, 64]}
-          />
+          <ringGeometry args={[planet.ring.inner, planet.ring.outer, 64]} />
           <meshBasicMaterial
             map={ringTexture as THREE.Texture}
             side={THREE.DoubleSide}
@@ -107,18 +115,23 @@ function PlanetGroup({
         </mesh>
       )}
 
+      {/* Label — responsive & elevated */}
       <Text
-        position={[0, planet.size + 0.8, 0]}
-        fontSize={0.6}
+        position={[0, labelHeightOffset, 0]}
+        fontSize={labelFontSize}
         color="white"
+        outlineWidth={0.015}
+        outlineColor="#000"
         anchorX="center"
         anchorY="bottom"
+        renderOrder={999} // always on top
       >
         {planet.name}
       </Text>
     </group>
   );
 }
+
 
 // ------------------ Orbit Path ------------------
 function Orbit({ distance }: { distance: number }) {
