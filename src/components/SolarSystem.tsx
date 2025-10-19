@@ -1,11 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Canvas, useLoader, useFrame, useThree } from "@react-three/fiber";
-import {
-  OrbitControls,
-  Stars,
-  ContactShadows,
-  Text,
-} from "@react-three/drei";
+import { OrbitControls, Stars, ContactShadows, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import CameraController, { useCameraStore } from "./CameraController";
@@ -24,14 +19,14 @@ import saturnRingTexture from "../assets/textures/saturn_ring.png";
 
 // ------------------ Planet Info ------------------
 const planetInfo = {
-  Mercury: "Smallest planet, closest to the Sun.",
-  Venus: "Hottest planet with dense atmosphere.",
-  Earth: "Our home world with oceans and life.",
-  Mars: "The Red Planet, target for exploration.",
-  Jupiter: "Gas giant with Great Red Spot.",
-  Saturn: "Known for its magnificent rings.",
-  Uranus: "An ice giant tilted on its side.",
-  Neptune: "Cold, windy, and farthest planet.",
+  Mercury: { desc: "Smallest planet, closest to the Sun.", distance: 58 },
+  Venus: { desc: "Hottest planet with dense atmosphere.", distance: 108 },
+  Earth: { desc: "Our home world with oceans and life.", distance: 150 },
+  Mars: { desc: "The Red Planet, target for exploration.", distance: 228 },
+  Jupiter: { desc: "Gas giant with Great Red Spot.", distance: 778 },
+  Saturn: { desc: "Known for its magnificent rings.", distance: 1430 },
+  Uranus: { desc: "An ice giant tilted on its side.", distance: 2870 },
+  Neptune: { desc: "Cold, windy, and farthest planet.", distance: 4500 },
 };
 
 interface PlanetData {
@@ -48,13 +43,10 @@ interface PlanetData {
 function ResponsiveCamera() {
   const { camera, size } = useThree();
   const perspectiveCamera = camera as THREE.PerspectiveCamera;
-
   useEffect(() => {
-    // Dynamically adjust camera FOV
     perspectiveCamera.fov = size.width < 480 ? 75 : size.width < 1024 ? 60 : 50;
     perspectiveCamera.updateProjectionMatrix();
   }, [perspectiveCamera, size.width]);
-
   return null;
 }
 
@@ -63,34 +55,40 @@ function PlanetGroup({
   planet,
   planetRef,
   onClick,
+  isSelected,
 }: {
   planet: PlanetData;
   planetRef: React.RefObject<THREE.Group | null>;
   onClick: (name: string) => void;
+  isSelected: boolean;
 }) {
   const [planetTexture, ringTexture] = useLoader(THREE.TextureLoader, [
     planet.texture,
     planet.ring ? planet.ring.texture : planet.texture,
   ]);
 
-  // 🧠 Detect screen width for responsive adjustments
   const isMobile = window.innerWidth < 600;
   const isTablet = window.innerWidth < 1024;
-
-  // Dynamic label scale
   const labelFontSize = isMobile ? 0.25 : isTablet ? 0.4 : 0.6;
   const labelHeightOffset = isMobile ? planet.size + 0.6 : planet.size + 0.8;
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime * planet.orbitSpeed;
-    const x = planet.distance * Math.cos(t);
-    const z = planet.distance * Math.sin(t);
-    if (planetRef.current) planetRef.current.position.set(x, 0, z);
+    // 🪐 Stop orbit when selected
+    if (!isSelected) {
+      const x = planet.distance * Math.cos(t);
+      const z = planet.distance * Math.sin(t);
+      if (planetRef.current) planetRef.current.position.set(x, 0, z);
+    }
+    // 🌍 Still rotate in place
+    if (planetRef.current && planetRef.current.children[0]) {
+      planetRef.current.children[0].rotation.y += planet.rotationSpeed;
+    }
   });
 
   return (
     <group ref={planetRef} onClick={() => onClick(planet.name)}>
-      {/* Main planet */}
+      {/* Planet */}
       <mesh>
         <sphereGeometry args={[planet.size, 48, 48]} />
         <meshStandardMaterial
@@ -102,7 +100,7 @@ function PlanetGroup({
         />
       </mesh>
 
-      {/* Rings (for Saturn) */}
+      {/* Rings (Saturn) */}
       {planet.ring && (
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <ringGeometry args={[planet.ring.inner, planet.ring.outer, 64]} />
@@ -115,7 +113,15 @@ function PlanetGroup({
         </mesh>
       )}
 
-      {/* Label — responsive & elevated */}
+      {/* Glow ring when selected */}
+      {isSelected && (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[planet.size * 1.4, planet.size * 1.7, 64]} />
+          <meshBasicMaterial color="#ffd580" transparent opacity={0.4} />
+        </mesh>
+      )}
+
+      {/* Label */}
       <Text
         position={[0, labelHeightOffset, 0]}
         fontSize={labelFontSize}
@@ -124,7 +130,6 @@ function PlanetGroup({
         outlineColor="#000"
         anchorX="center"
         anchorY="bottom"
-        renderOrder={999} // always on top
       >
         {planet.name}
       </Text>
@@ -132,8 +137,7 @@ function PlanetGroup({
   );
 }
 
-
-// ------------------ Orbit Path ------------------
+// ------------------ Orbit ------------------
 function Orbit({ distance }: { distance: number }) {
   const points: THREE.Vector3[] = [];
   for (let i = 0; i <= 128; i++) {
@@ -146,64 +150,72 @@ function Orbit({ distance }: { distance: number }) {
 }
 
 // ------------------ Info Panel ------------------
-// ------------------ Info Panel ------------------
+const planetBackgrounds: Record<string, string> = {
+  Mercury: mercuryTexture,
+  Venus: venusTexture,
+  Earth: earthTexture,
+  Mars: marsTexture,
+  Jupiter: jupiterTexture,
+  Saturn: saturnTexture,
+  Uranus: uranusTexture,
+  Neptune: neptuneTexture,
+};
+
 function InfoPanel({ name }: { name: keyof typeof planetInfo }) {
-  // detect screen size
   const isMobile = window.innerWidth < 600;
   const isTablet = window.innerWidth < 1024;
+  const { desc, distance } = planetInfo[name];
+  const bg = planetBackgrounds[name];
 
   return (
     <div
       style={{
         position: "absolute",
         ...(isMobile
-          ? {
-              bottom: "5%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              textAlign: "center",
-            }
+          ? { bottom: "6%", left: "50%", transform: "translateX(-50%)", textAlign: "center" }
           : isTablet
-          ? {
-              top: "60%",
-              right: "clamp(10px, 4vw, 30px)",
-              transform: "translateY(-50%)",
-            }
-          : {
-              top: "50%",
-              right: "clamp(10px, 4vw, 40px)",
-              transform: "translateY(-50%)",
-            }),
-        background: "rgba(0,0,0,0.6)",
-        padding: "clamp(12px, 2vw, 20px) clamp(20px, 3vw, 30px)",
-        borderRadius: "16px",
+          ? { top: "60%", right: "clamp(10px, 4vw, 30px)", transform: "translateY(-50%)" }
+          : { top: "50%", right: "clamp(10px, 4vw, 40px)", transform: "translateY(-50%)" }),
+        width: isMobile ? "85%" : isTablet ? "clamp(200px, 40vw, 280px)" : "clamp(220px, 30vw, 260px)",
         color: "white",
-        width: isMobile
-          ? "80%"
-          : isTablet
-          ? "clamp(200px, 40vw, 280px)"
-          : "clamp(220px, 30vw, 260px)",
-        fontFamily: "sans-serif",
-        boxShadow: "0 0 20px rgba(255,255,255,0.1)",
-        backdropFilter: "blur(10px)",
-        fontSize: "clamp(12px, 2vw, 16px)",
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "0 0 30px rgba(0,0,0,0.4)",
         zIndex: 10,
       }}
     >
-      <h3
+      {/* Planet surface background */}
+      <div
         style={{
-          marginBottom: "10px",
-          fontSize: "clamp(16px, 3vw, 20px)",
+          backgroundImage: `url(${bg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "blur(6px) brightness(0.6)",
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+        }}
+      />
+
+      {/* Overlay for readability */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          background: "rgba(0, 0, 0, 0.55)",
+          padding: "clamp(14px, 2vw, 22px) clamp(22px, 3vw, 32px)",
+          backdropFilter: "blur(5px)",
         }}
       >
-        {name}
-      </h3>
-      <p style={{ lineHeight: "1.4" }}>{planetInfo[name]}</p>
+        <h3 style={{ marginBottom: "10px", fontSize: "clamp(16px, 3vw, 20px)" }}>{name}</h3>
+        <p style={{ lineHeight: "1.4", marginBottom: "8px" }}>{desc}</p>
+        <p style={{ color: "#ffd580", fontWeight: 600 }}>
+          ☀️ Distance from Sun: {distance} million km
+        </p>
+      </div>
     </div>
   );
 }
-
-
 // ------------------ Sun ------------------
 function Sun() {
   const texture = useLoader(THREE.TextureLoader, sunTexture);
@@ -215,12 +227,7 @@ function Sun() {
     <group>
       <mesh ref={ref}>
         <sphereGeometry args={[5, 64, 64]} />
-        <meshStandardMaterial
-          emissive="#ffdca3"
-          emissiveIntensity={3}
-          map={texture}
-          toneMapped={false}
-        />
+        <meshStandardMaterial emissive="#ffdca3" emissiveIntensity={3} map={texture} toneMapped={false} />
       </mesh>
       <pointLight intensity={4} distance={300} decay={2} color="#fff2d6" />
     </group>
@@ -249,7 +256,6 @@ export default function SolarSystem() {
     Neptune: useRef(null),
   };
 
-  // 🪐 Responsive scaling
   const width = window.innerWidth;
   const scaleFactor = width < 480 ? 0.9 : width < 1024 ? 0.8 : 1;
   const cameraPos = width < 480 ? [0, 25, 80] : width < 1024 ? [0, 35, 110] : [0, 40, 120];
@@ -284,12 +290,10 @@ export default function SolarSystem() {
   };
 
   const smoothedTarget = useRef(new THREE.Vector3()).current;
-
   const getPlanetPosition = () => {
     if (!selected) return null;
     const ref = planetRefs[selected];
     if (!ref?.current) return smoothedTarget;
-
     const localPos = new THREE.Vector3(0, 0, 0);
     ref.current.localToWorld(localPos);
     smoothedTarget.lerp(localPos, 0.2);
@@ -321,10 +325,7 @@ export default function SolarSystem() {
         </div>
       )}
 
-      <Canvas
-        camera={{ position: cameraPos as [number, number, number], fov: 50 }}
-        style={{ width: "100vw", height: "100vh", touchAction: "none" }}
-      >
+      <Canvas camera={{ position: cameraPos as [number, number, number], fov: 50 }} style={{ width: "100vw", height: "100vh", touchAction: "none" }}>
         <ResponsiveCamera />
         <fog attach="fog" args={["#020317", 40, 350]} />
         <ambientLight intensity={0.3} />
@@ -336,23 +337,15 @@ export default function SolarSystem() {
         {planets.map((p) => (
           <React.Fragment key={p.name}>
             <Orbit distance={p.distance} />
-            <PlanetGroup planet={p} planetRef={planetRefs[p.name]} onClick={handleClick} />
+            <PlanetGroup planet={p} planetRef={planetRefs[p.name]} onClick={handleClick} isSelected={selected === p.name} />
           </React.Fragment>
         ))}
 
         <ContactShadows position={[0, -6, 0]} opacity={0.4} scale={300} blur={4} far={40} />
-        <OrbitControls
-          enabled={!useCameraStore.getState().isFocusing}
-          enablePan={false}
-          enableZoom
-          enableDamping
-          dampingFactor={0.08}
-          rotateSpeed={0.6}
-        />
+        <OrbitControls enabled={!useCameraStore.getState().isFocusing} enablePan={false} enableZoom enableDamping dampingFactor={0.08} rotateSpeed={0.6} />
         <EffectComposer>
           <Bloom luminanceThreshold={0.1} luminanceSmoothing={0.9} intensity={1.4} />
         </EffectComposer>
-
         <CameraController getPlanetPosition={getPlanetPosition} />
       </Canvas>
 
