@@ -1,49 +1,82 @@
-import { useThree, useFrame } from "@react-three/fiber";
-import { Vector3 } from "three";
+import React, { useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { create } from "zustand";
 
-// ---------------- Camera Store ----------------
+// -------------------- Zustand Store --------------------
 interface CameraState {
-  targetPlanet: Vector3 | null;
-  setTarget: (pos: Vector3 | null) => void;
+  isFocusing: boolean;
+  setFocusing: (v: boolean) => void;
 }
-
 export const useCameraStore = create<CameraState>((set) => ({
-  targetPlanet: null,
-  setTarget: (pos: Vector3 | null) => set({ targetPlanet: pos }),
+  isFocusing: false,
+  setFocusing: (v) => set({ isFocusing: v }),
 }));
 
-// ---------------- Camera Controller ----------------
-export default function CameraController({
-  getPlanetPosition,
-}: {
-  getPlanetPosition?: () => Vector3 | null;
-}) {
-  const { camera, mouse } = useThree();
-  const { targetPlanet } = useCameraStore();
+// -------------------- Camera Controller --------------------
+interface CameraControllerProps {
+  getPlanetPosition: () => THREE.Vector3 | null;
+}
 
-  const radius = 60;
-  const height = 20;
-  const rotationSpeed = 0.001;
-  let angle = 0;
+export default function CameraController({ getPlanetPosition }: CameraControllerProps) {
+  const { camera } = useThree();
+  const { isFocusing } = useCameraStore();
 
-  useFrame(({ clock }) => {
-    if (targetPlanet && getPlanetPosition) {
-      // Get the planet's current position dynamically
-      const planetPos = getPlanetPosition();
-      if (planetPos) {
-        const desiredPosition = planetPos.clone().add(new Vector3(0, 5, 15));
-        camera.position.lerp(desiredPosition, 0.08);
-        camera.lookAt(planetPos.clone().add(new Vector3(0, 2, 0)));
+  // smooth camera & planet vectors
+  const smoothedPlanet = useRef(new THREE.Vector3());
+  const smoothedCamera = useRef(new THREE.Vector3(0, 40, 120));
+  const lastDir = useRef(new THREE.Vector3(0, 0, -1));
+  const isActive = useRef(false);
+
+  useFrame((state, delta) => {
+    const target = getPlanetPosition?.();
+    const time = state.clock.getElapsedTime();
+
+    if (isFocusing && target) {
+      // activate cinematic follow mode
+      if (!isActive.current) {
+        camera.getWorldDirection(lastDir.current);
+        isActive.current = true;
       }
+
+      // --- Smoothly track the planet position ---
+      smoothedPlanet.current.lerp(target, 1 - Math.exp(-delta * 4));
+
+      // --- CINEMATIC ORBIT CAMERA MOTION ---
+      const orbitRadius = 10; // distance from planet
+      const orbitSpeed = 0.2; // how fast camera orbits
+      const orbitHeight = 3; // height above planet
+
+      // subtle zoom “breathing” (cosine oscillation)
+      const zoomPulse = Math.sin(time * 0.5) * 1.2; // amplitude of zoom
+      const currentRadius = orbitRadius + zoomPulse; // apply breathing effect
+
+      // orbit position
+      const orbitX = Math.sin(time * orbitSpeed) * currentRadius;
+      const orbitZ = Math.cos(time * orbitSpeed) * currentRadius;
+
+      const desired = new THREE.Vector3(
+        smoothedPlanet.current.x + orbitX,
+        smoothedPlanet.current.y + orbitHeight,
+        smoothedPlanet.current.z + orbitZ
+      );
+
+      // Smoothly interpolate camera movement
+      smoothedCamera.current.lerp(desired, 1 - Math.exp(-delta * 3));
+
+      // Apply camera position + lookAt
+      camera.position.copy(smoothedCamera.current);
+      camera.lookAt(smoothedPlanet.current);
     } else {
-      // Free orbit around the system center
-      angle += rotationSpeed;
-      const x = radius * Math.cos(angle) + mouse.x * 5;
-      const z = radius * Math.sin(angle) + mouse.y * 5;
-      const y = height + Math.sin(clock.getElapsedTime() * 0.2) * 5;
-      camera.position.lerp(new Vector3(x, y, z), 0.05);
-      camera.lookAt(new Vector3(0, 0, 0));
+      // reset back to default system view
+      if (isActive.current) isActive.current = false;
+
+      const defaultPos = new THREE.Vector3(0, 40, 120);
+      smoothedCamera.current.lerp(defaultPos, 0.05);
+      smoothedPlanet.current.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+
+      camera.position.copy(smoothedCamera.current);
+      camera.lookAt(smoothedPlanet.current);
     }
   });
 
