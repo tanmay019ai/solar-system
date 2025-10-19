@@ -146,30 +146,63 @@ function Orbit({ distance }: { distance: number }) {
 }
 
 // ------------------ Info Panel ------------------
+// ------------------ Info Panel ------------------
 function InfoPanel({ name }: { name: keyof typeof planetInfo }) {
+  // detect screen size
+  const isMobile = window.innerWidth < 600;
+  const isTablet = window.innerWidth < 1024;
+
   return (
     <div
       style={{
         position: "absolute",
-        top: "50%",
-        right: "clamp(10px, 4vw, 40px)",
-        transform: "translateY(-50%)",
+        ...(isMobile
+          ? {
+              bottom: "5%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              textAlign: "center",
+            }
+          : isTablet
+          ? {
+              top: "60%",
+              right: "clamp(10px, 4vw, 30px)",
+              transform: "translateY(-50%)",
+            }
+          : {
+              top: "50%",
+              right: "clamp(10px, 4vw, 40px)",
+              transform: "translateY(-50%)",
+            }),
         background: "rgba(0,0,0,0.6)",
         padding: "clamp(12px, 2vw, 20px) clamp(20px, 3vw, 30px)",
         borderRadius: "16px",
         color: "white",
-        maxWidth: "clamp(180px, 30vw, 260px)",
+        width: isMobile
+          ? "80%"
+          : isTablet
+          ? "clamp(200px, 40vw, 280px)"
+          : "clamp(220px, 30vw, 260px)",
         fontFamily: "sans-serif",
         boxShadow: "0 0 20px rgba(255,255,255,0.1)",
         backdropFilter: "blur(10px)",
         fontSize: "clamp(12px, 2vw, 16px)",
+        zIndex: 10,
       }}
     >
-      <h3 style={{ marginBottom: "10px", fontSize: "clamp(16px, 3vw, 20px)" }}>{name}</h3>
+      <h3
+        style={{
+          marginBottom: "10px",
+          fontSize: "clamp(16px, 3vw, 20px)",
+        }}
+      >
+        {name}
+      </h3>
       <p style={{ lineHeight: "1.4" }}>{planetInfo[name]}</p>
     </div>
   );
 }
+
 
 // ------------------ Sun ------------------
 function Sun() {
