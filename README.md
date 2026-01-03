@@ -31,3 +31,5 @@ Click on planets to focus the camera, view information, and explore their circul
 ## 📷 Screenshot
 
 ![Solar System](src/assets/screenshots/solar-system.png)
+
+You can contribute and suggest more changes that will make it more unique.
